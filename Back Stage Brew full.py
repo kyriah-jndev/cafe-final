@@ -46,7 +46,11 @@ tablequery = 0
 printtest = [[],[],[],[]]
 totalpriceadd = 0
 pricetotalamount = 0
-
+rounding11 = ["Cash", "Eftpos"]
+roundingcol = ["#adff2f", color2]
+roundingidentites = []
+currentroundID = 0
+grandprice1 = 0
 
 
    
@@ -104,8 +108,43 @@ class StartPage(tk.Frame):
             #items without a current default option are given one
           cursor.execute("INSERT INTO foodoptions (category, food, options, Price) VALUES (?,?,?,?)", items)
           connection.commit()
-
-                                    
+        def calcchange(n):
+           global expression, totalprice
+           if currentroundID == 0:
+               if n == "X":
+                expression = expression[:-1]
+               elif n == "none":
+                   changelabel.config(text = expression)                  
+               else:
+                   expression = expression + str(n) 
+               changelabel.config(text = expression)
+               amountchanges = 0
+               if expression == "":
+                  changegivenlabel.config(text = "Invalid") 
+               else:
+                  amountchanges =  float(expression ) - float(grandprice1)
+                  if amountchanges < 0:
+                    changegivenlabel.config(text = "Invalid")
+                  else:
+                    changegivenlabel.config(text = amountchanges)
+           else:
+              pass
+        def round_to(n, precision):
+            correction = 0.5 if n >= 0 else -0.5
+            return int( n/precision+correction ) * precision
+        
+        def finalpricerefresh():
+            global finaltotalcompleterprice, totalglobalprice, grandprice1
+            if currentroundID == 0:
+               grandprice =  round_to(sum(totalglobalprice), 0.05)
+            
+            else:
+                grandprice = sum(totalglobalprice)
+            grandprice1 = ('%.5s' % str(grandprice))
+            
+            globaltotallabel.config(text = grandprice1)
+                
+                                
         def clear(n):
             #the clear function used universaly to 2 layer frame (menaFrame, recieptframe)
             list = n.place_slaves()
@@ -114,14 +153,12 @@ class StartPage(tk.Frame):
                 l.destroy()
         def addclear(n, priceidentifier):
             #clears information in a 4th layer from in the reciet frame, allowing for dynamic deletion
-          global expression, totalglobalprice, globalitems
+          global expression, globalitems
           #resets the variables to zero for the items to not clutter
           totalglobalprice[priceidentifier] = 0
           globalitems[priceidentifier] = 0
           #refresh items
-          globaltotallabel.config(text =str(sum(totalglobalprice)))
-          totalglobalpricesum = sum(totalglobalprice)
-          globaltotallabel.config(text =str(totalglobalpricesum))
+          finalpricerefresh()
           #destroying the frame
           n.destroy()
 
@@ -132,11 +169,9 @@ class StartPage(tk.Frame):
                 frame1123 = LabelFrame(frame, text=Name, width=60, height=1, bg = color1, fg = "white")
                 frame1123.pack(anchor=NW, pady=3)
                 totalglobalprice.append(price)
-                totalglobalpricesum = sum(totalglobalprice)
-                globaltotallabel.config(text =str(totalglobalpricesum))
+
+                finalpricerefresh()
                 globalitems.append(Name)
-                print(globalitems)
-                print (totalglobalprice)
                 #activates if the system recieves a funcstate of 0 which is coffee sys
                 if addfuncstate == 0:
                   message_W=Label(frame1123, text="byoc:   " + byocstate, bg = color1, fg = "white")
@@ -212,7 +247,7 @@ class StartPage(tk.Frame):
             global baseprices, optionselected, totalglobalprice, pricetotalamount
             baseprices = baseprice
             pricetotalamount
-            print (baseprice)
+
             #clear frame
             clearob = partial(clear, optionFrame)
             clearob()
@@ -236,7 +271,6 @@ class StartPage(tk.Frame):
               total.config(text = "Total:  " + str(pricetotalamount))
             pricetotalamount = baseprices
             
-            print(pricetotalamount)
             addingbut = Button(optionFrame, text ="Add", width = 8, height = 1, font=('Helvetica', 20, 'bold'), bg = "#0000a5", fg = "white", anchor = NW, command= lambda: addfunc(Name, 1, pricetotalamount))
             addingbut.place (x = 415, y = 912)
             
@@ -432,23 +466,53 @@ class StartPage(tk.Frame):
         changeframey = 35
         changeframex = 5
         
-        
+        def rounding(ID):
+            global totalglobalprice, currentroundID
+            for buttons in roundingidentites:
+                buttons.config(bg = color2)
+            currentroundID = ID
+            if ID == 0:
+                roundingidentites[ID].config(bg = "#adff2f")
+                finalpricerefresh()
+                calcchange("none")
+            else:
+                roundingidentites[ID].config(bg = "#adff2f")
+                currentroundID = 1
+                changegivenlabel.config(text = "Eftpos")
+                finalpricerefresh()
+            
+            
         changelabel = Label(changeFrame, width=33, height=1, highlightthickness=0.5, highlightbackground="white", bg ="white", fg = "black")
         changelabel.place(x = 5, y = 10)
-        changegivenlabel = Label(changeFrame, text=amountchanges, width=5, height=1, highlightthickness=0.5, font=('Helvetica', 20, 'bold'), highlightbackground="white", bg =color2, fg = "white")
+        changegivenlabel = Label(changeFrame, text=amountchanges, width=10, height=1, highlightthickness=0.5, font=('Helvetica', 20, 'bold'), highlightbackground="white", bg =color2, fg = "white")
         changegivenlabel.place(x = 5, y = 400)
 
         dynamictotalprice = Frame(recieptFrame, width=258, height=450, highlightthickness=0.5, highlightbackground="#7A8663", bg =color2)
         dynamictotalprice.place(x = 280, y = 350)
+        roundingID = 0
+        xxx = 10
+        eftposbut1 = 0
+        for types, col in zip(rounding11, roundingcol):
+            eftposbut1 = Button(dynamictotalprice, bd = 1, bg = col, fg = "black", width = 9, text = types, anchor = CENTER, font=('Helvetica', 15, 'bold'), relief="solid", command = partial(rounding, roundingID))
+            eftposbut1.place(x = xxx, y = 10)
+            xxx += 115
+            roundingidentites.append(eftposbut1)
+            roundingID =+ 1
+        
+            
+            
+        
 
         globaltotallabel1 = Label(dynamictotalprice, text="Final Price:", anchor = W, width=8, font=('Helvetica', 15, 'bold'), bg =color2, fg = "white")
-        globaltotallabel1.place(x = 10, y = 10)
+        globaltotallabel1.place(x = 10, y = 70)
         
         globaltotallabel = Label(dynamictotalprice, text=str(sum(totalglobalprice)), anchor = W, width=8, font=('Helvetica', 15, 'bold'), bg =color2, fg = "white")
-        globaltotallabel.place(x = 10, y = 50)
+        globaltotallabel.place(x = 10, y = 110)
 
         corfirmframe = Frame(recieptFrame, width=526, height=115, highlightthickness=0.5, highlightbackground="#7A8663", bg =color2)
         corfirmframe.place(x = 10, y = 810)
+
+    
         def confirmorder(printiden):
           global totalglobalprice, globalitems, totalcolate, frequency, priceidentifier, pricetotal
           order = ["Confirm Order:", "print and Confirm Order"]
@@ -463,7 +527,6 @@ class StartPage(tk.Frame):
           file = open(filename, "w")
           if totalglobalprice== []:
             pass
-            print("1")
           else:
              MsgBox = tk.messagebox.askquestion (order[int(printiden)],icon = 'warning')
              if MsgBox == 'yes':
@@ -522,22 +585,8 @@ class StartPage(tk.Frame):
         
         
 
-        def calcchange(n):
-           global expression, totalprice
-           if n == "X":
-            expression = expression[:-1]
-           else:
-               expression = expression + str(n) 
-           changelabel.config(text = expression)
-           amountchanges = 0
-           if expression == "":
-              changegivenlabel.config(text = "Invalid") 
-           else:
-              amountchanges =  float(expression ) - float(sum(totalglobalprice))
-              if amountchanges < 0:
-                changegivenlabel.config(text = "Invalid")
-              else:
-                changegivenlabel.config(text = amountchanges)
+        
+
            
         for numberals in changeray11:
              changebutton = Button(changeFrame, text = numberals,bd = 3, width = 3, height = 0, font=('Helvetica', 25, 'bold'), bg = color1, fg = "white",command = partial(calcchange, numberals), highlightthickness=0.5, highlightbackground="#7A8663")
